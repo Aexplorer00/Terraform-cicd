@@ -9,45 +9,52 @@ on:
       - main
   workflow_dispatch:
 
-permissions:
-  id-token: write
-  contents: read
-  pull-requests: write
-
 jobs:
   terraform:
     name: "Terraform Lint, Plan & Apply"
     runs-on: ubuntu-latest
 
+    env:
+      AWS_ACCESS_KEY_ID: "mock_access_key"
+      AWS_SECRET_ACCESS_KEY: "mock_secret_key"
+      AWS_DEFAULT_REGION: "ap-south-1"
+
     steps:
+      # 1. Checkout repository code
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # 2. Setup Terraform CLI
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.6.0"
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-1
+      # 3. Start LocalStack Container for 100% Free Mock Cloud Testing
+      - name: Start LocalStack Mock Engine
+        run: |
+          docker run -d -p 4566:4566 --name localstack localstack/localstack:latest
+          echo "Waiting for LocalStack to initialize..."
+          sleep 12
 
+      # 4. Initialize Terraform working directory
       - name: Terraform Init
         run: terraform init
 
+      # 5. Check Terraform Code Formatting
       - name: Terraform Format Check
         run: terraform fmt -check
 
+      # 6. Validate Terraform Configuration
       - name: Terraform Validate
         run: terraform validate
 
+      # 7. Generate Execution Plan against LocalStack
       - name: Terraform Plan
         id: plan
         run: terraform plan -no-color -out=tfplan
 
+      # 8. Apply Infrastructure Changes against LocalStack
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: terraform apply -auto-approve tfplan

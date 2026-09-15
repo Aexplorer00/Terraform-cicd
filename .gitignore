@@ -13,7 +13,3 @@ crash.*.log
 # Exclude sensitive tfvars
 *.tfvars
 *.tfvars.json
-
-# Override files (so CI/CD doesn't use local Floci endpoints)
-override.tf
-override.tf.json
